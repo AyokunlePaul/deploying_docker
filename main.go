@@ -15,5 +15,5 @@ func main() {
 			"message": "pong",
 		})
 	})
-	log.Fatal(r.Run(":3000"))
+	log.Fatal(r.Run(":8080"))
 }
