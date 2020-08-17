@@ -4,7 +4,9 @@ FROM golang:alpine AS builder
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
     GOOS=linux \
-    GOARCH=amd64
+    GOARCH=amd64 \
+    USER=admin \
+    PASSWORD=dmin
 
 # Move to working directory /build
 WORKDIR /build
