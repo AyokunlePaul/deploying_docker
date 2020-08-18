@@ -40,6 +40,8 @@ func main() {
 		})
 	})
 	r.POST("/fruits", func(c *gin.Context) {
+		writeContext, writeContextCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer writeContextCancel()
 		fruits := map[string]string{}
 		bindError := c.ShouldBindJSON(&fruits)
 
@@ -50,8 +52,6 @@ func main() {
 			})
 			return
 		}
-
-		fmt.Printf("Fruits payload: %v\n", fruits)
 
 		if len(fruits) == 0 {
 			c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -68,7 +68,7 @@ func main() {
 			})
 		}
 		fruitsCollection := client.Database("test_database").Collection("fruits")
-		result, insertionError := fruitsCollection.InsertMany(mongoContext, values)
+		result, insertionError := fruitsCollection.InsertMany(writeContext, values)
 		if insertionError != nil {
 			log.Print(insertionError.Error())
 			c.JSON(http.StatusInternalServerError, map[string]interface{}{
