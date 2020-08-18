@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"log"
 	"net/http"
 	"os"
@@ -15,21 +17,16 @@ import (
 
 func main() {
 	r := gin.Default()
-	mongoContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	mongoAdmin := os.Getenv("USER")
-	mongoPassword := os.Getenv("PASSWORD")
-
-	mongoUri := fmt.Sprintf(
-		"mongodb+srv://%s:%s@golang-docker-test-clus.mdqzh.gcp.mongodb.net/test_database?retryWrites=true&w=majority",
-		mongoAdmin, mongoPassword,
-	)
-
-	client, clientError := mongo.Connect(mongoContext, options.Client().ApplyURI(mongoUri))
-	if clientError != nil {
-		panic(clientError)
+	environmentVariablesError := godotenv.Load()
+	if environmentVariablesError != nil {
+		panic(environmentVariablesError)
 	}
+
+	mongoAdmin := os.Getenv("MONGO_USER")
+	mongoPassword := os.Getenv("MONGO_PASSWORD")
+
+	log.Println("Mongo Admin", mongoAdmin)
+	log.Println("Mongo Password", mongoPassword)
 
 	r.GET("/", func(c *gin.Context) {
 		c.String(200, "Hello there stranger!")
@@ -40,8 +37,28 @@ func main() {
 		})
 	})
 	r.POST("/fruits", func(c *gin.Context) {
-		writeContext, writeContextCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer writeContextCancel()
+		mongoContext, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+		mongoUri := fmt.Sprintf("mongodb+srv://%s:%s@golang-docker-test-clus.mdqzh.gcp.mongodb.net",
+			mongoAdmin, mongoPassword)
+
+		_ = options.Credential{
+			Username: mongoAdmin,
+			Password: mongoPassword,
+		}
+		client, clientError := mongo.Connect(mongoContext, options.Client().ApplyURI(mongoUri))
+		if clientError != nil {
+			panic(clientError)
+		}
+		if pingError := client.Ping(mongoContext, readpref.Primary()); pingError != nil {
+			log.Fatal(pingError.Error())
+		}
+		if availableDatabases, databaseError := client.ListDatabaseNames(mongoContext, bson.M{}); databaseError != nil {
+			log.Fatal(availableDatabases)
+		} else {
+			log.Println(availableDatabases)
+		}
+
 		fruits := map[string]string{}
 		bindError := c.ShouldBindJSON(&fruits)
 
@@ -68,7 +85,7 @@ func main() {
 			})
 		}
 		fruitsCollection := client.Database("test_database").Collection("fruits")
-		result, insertionError := fruitsCollection.InsertMany(writeContext, values)
+		result, insertionError := fruitsCollection.InsertMany(mongoContext, values)
 		if insertionError != nil {
 			log.Print(insertionError.Error())
 			c.JSON(http.StatusInternalServerError, map[string]interface{}{
