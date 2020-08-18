@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,6 +12,10 @@ import (
 	"net/http"
 	"os"
 	"time"
+)
+
+const (
+	mongoUri = "mongodb+srv://%s:%s@golang-docker-test-clus.mdqzh.gcp.mongodb.net"
 )
 
 func main() {
@@ -32,6 +35,24 @@ func main() {
 		c.String(200, "Hello there stranger!")
 	})
 	r.GET("/ping", func(c *gin.Context) {
+		mongoContext, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+		//mongoUri := fmt.Sprintf("mongodb+srv://%s:%s@golang-docker-test-clus.mdqzh.gcp.mongodb.net",
+		//	mongoAdmin, mongoPassword)
+
+		mongoUri := "mongodb://mongo"
+
+		client, clientError := mongo.Connect(mongoContext, options.Client().ApplyURI(mongoUri))
+		if clientError != nil {
+			panic(clientError)
+		}
+		if pingError := client.Ping(mongoContext, readpref.Primary()); pingError != nil {
+			c.JSON(http.StatusInternalServerError, bson.M{
+				"message": "could not ping database",
+			})
+			log.Println(pingError.Error())
+			return
+		}
 		c.JSON(200, gin.H{
 			"message": "pong",
 		})
@@ -39,24 +60,21 @@ func main() {
 	r.POST("/fruits", func(c *gin.Context) {
 		mongoContext, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
-		mongoUri := fmt.Sprintf("mongodb+srv://%s:%s@golang-docker-test-clus.mdqzh.gcp.mongodb.net",
-			mongoAdmin, mongoPassword)
+		//mongoUri := fmt.Sprintf("mongodb+srv://%s:%s@golang-docker-test-clus.mdqzh.gcp.mongodb.net",
+		//	mongoAdmin, mongoPassword)
 
-		_ = options.Credential{
-			Username: mongoAdmin,
-			Password: mongoPassword,
-		}
+		mongoUri := "mongodb://mongo"
+
 		client, clientError := mongo.Connect(mongoContext, options.Client().ApplyURI(mongoUri))
 		if clientError != nil {
 			panic(clientError)
 		}
 		if pingError := client.Ping(mongoContext, readpref.Primary()); pingError != nil {
-			log.Fatal(pingError.Error())
-		}
-		if availableDatabases, databaseError := client.ListDatabaseNames(mongoContext, bson.M{}); databaseError != nil {
-			log.Fatal(availableDatabases)
-		} else {
-			log.Println(availableDatabases)
+			c.JSON(http.StatusInternalServerError, bson.M{
+				"message": "could not ping database",
+			})
+			log.Println(pingError.Error())
+			return
 		}
 
 		fruits := map[string]string{}

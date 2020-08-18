@@ -1,0 +1,23 @@
+version: '3.3'
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - '27100:27017'
+
+  api:
+    container_name: api
+    build: './'
+    ports:
+      - '8080:8080'
+    volumes:
+      - './api:/go/src'
+    depends_on:
+      - mongodb
+    networks:
+      back-end:
+        -
+networks:
+  front-end:
+  back-end:

@@ -16,11 +16,9 @@ RUN go mod download
 
 # Copy the code into the container
 COPY src .
-RUN ls
 
 # Build the application
 RUN go build -o main .
-RUN ls
 
 # Move to /dist directory as the place for resulting binary folder
 WORKDIR /dist
